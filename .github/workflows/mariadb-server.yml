@@ -1,0 +1,82 @@
+name: Test MariaDB Server Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      mdb_run_id:
+        description: Stable coordinator run ID used for provider idempotency
+        required: true
+        type: string
+      mariadb_image:
+        description: Immutable MariaDB image pull reference
+        required: true
+        type: string
+      mariadb_version:
+        description: MariaDB version associated with the image
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mdb-provider-${{ inputs.mdb_run_id }}
+  cancel-in-progress: false
+
+jobs:
+  test-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out provider tests
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@f51f967e158417aafa338a1e46ab22095f07aa01 # v2.8.2
+        with:
+          key: mariadb-server-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Start MariaDB
+        env:
+          DB_IMAGE: ${{ inputs.mariadb_image }}
+        run: |
+          docker run -d \
+            --name mariadb \
+            -e MARIADB_ROOT_PASSWORD=root \
+            -e MARIADB_DATABASE=testdb \
+            -e MARIADB_USER=test \
+            -e MARIADB_PASSWORD=test \
+            -p 3306:3306 \
+            "$DB_IMAGE"
+
+          echo "Waiting for MariaDB..."
+          until docker exec mariadb healthcheck.sh --connect --innodb_initialized; do
+            sleep 2
+          done
+          docker exec mariadb mariadb -u root -proot -e 'create database test_example; grant all on test_example.* to test'
+
+          echo "MARIADB_DATABASE_URL=mariadb://test:test@127.0.0.1/testdb" >> $GITHUB_ENV
+          echo "MARIADB_EXAMPLE_DATABASE_URL=maridb://test:test@127.0.0.1/test_example" >> $GITHUB_ENV
+          echo "MARIADB_UNIT_TEST_DATABASE_URL=mariadb://test:test@127.0.0.1/testdb" >> $GITHUB_ENV
+
+      - name: Rust version check
+        shell: bash
+        run: |
+          rustup override set stable
+          rustup component add rustfmt
+          cargo --version
+          rustc --version
+
+      - uses: taiki-e/install-action@60581cd7025e0e855cebd745379013e286d9c787 # v2.64.2
+        with:
+          tool: cargo-hack,cargo-minimal-versions
+
+      - uses: taiki-e/install-action@60581cd7025e0e855cebd745379013e286d9c787 # v2.64.2
+        with:
+          tool: nextest
+
+      - name: Run tests
+        shell: bash
+        run: |
+          cargo xtask run-tests mariadb -- --no-fail-fast
