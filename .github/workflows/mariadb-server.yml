@@ -1,4 +1,4 @@
-name: Test MariaDB Server Image
+name: Test MariaDB
 
 on:
   workflow_dispatch:
@@ -9,11 +9,12 @@ on:
         type: string
       mariadb_image:
         description: Immutable MariaDB image pull reference
-        required: true
+        required: false
         type: string
+        default: docker.io/library/mariadb:lts
       mariadb_version:
-        description: MariaDB version associated with the image
-        required: true
+        description: MariaDB Server version associated with the image
+        required: false
         type: string
       mariadb_connector:
         description: URL of MariaDB Connector/C
