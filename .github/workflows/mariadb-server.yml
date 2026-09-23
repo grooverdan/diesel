@@ -15,6 +15,10 @@ on:
         description: MariaDB version associated with the image
         required: true
         type: string
+      mariadb_connector:
+        description: URL of MariaDB Connector/C
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -37,7 +41,17 @@ jobs:
         with:
           key: mariadb-server-cargo-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: Start MariaDB
+      - name: Install MariaDB Connector/C
+        if: inputs.mariadb_connector
+        run: |
+          dir=$(mktemp -d)
+          curl ${{ inputs.mariadb_connector }} | tar -zxf - -C "${dir}"
+          dir=($dir/mariadb-connector-c*/)
+          echo "MYSQLCLIENT_LIB_DIR=$dir/lib/mariadb" >> $GITHUB_ENV
+          echo "MYSQLCLIENT_INCLUDE_DIR=$dir/include" >> $GITHUB_ENV
+          echo "MYSQLCLIENT_VERSION=$($dir/bin/mariadb_config --cc_version)" >> $GITHUB_ENV
+
+      - name: Start MariaDB Server
         env:
           DB_IMAGE: ${{ inputs.mariadb_image }}
         run: |
