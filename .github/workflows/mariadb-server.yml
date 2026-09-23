@@ -51,6 +51,7 @@ jobs:
           echo "MYSQLCLIENT_LIB_DIR=$dir/lib/mariadb" >> $GITHUB_ENV
           echo "MYSQLCLIENT_INCLUDE_DIR=$dir/include" >> $GITHUB_ENV
           echo "MYSQLCLIENT_VERSION=$($dir/bin/mariadb_config --cc_version)" >> $GITHUB_ENV
+          echo "MYSQLCLIENT_LIBNAME=mariadb" >> $GITHUB_ENV
 
       - name: Start MariaDB Server
         env:
@@ -72,7 +73,7 @@ jobs:
           docker exec mariadb mariadb -u root -proot -e 'create database test_example; grant all on test_example.* to test'
 
           echo "MARIADB_DATABASE_URL=mariadb://root:root@127.0.0.1/testdb" >> $GITHUB_ENV
-          echo "MARIADB_EXAMPLE_DATABASE_URL=maridb://root:root@127.0.0.1/test_example" >> $GITHUB_ENV
+          echo "MARIADB_EXAMPLE_DATABASE_URL=mariadb://root:root@127.0.0.1/test_example" >> $GITHUB_ENV
           echo "MARIADB_UNIT_TEST_DATABASE_URL=mariadb://root:root@127.0.0.1/testdb" >> $GITHUB_ENV
 
       - name: Rust version check
